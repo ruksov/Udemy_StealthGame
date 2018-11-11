@@ -15,9 +15,6 @@ ABlackHole::ABlackHole()
     RootComponent = MeshComp;
 
     InnerSphereComp = CreateDefaultSubobject<USphereComponent>(TEXT("InnerSphereComp"));
-    InnerSphereComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    InnerSphereComp->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-    InnerSphereComp->SetCollisionResponseToChannel(ECollisionChannel::ECC_PhysicsBody, ECollisionResponse::ECR_Overlap);
     InnerSphereComp->OnComponentBeginOverlap.AddDynamic(this, &ABlackHole::OnOverlapInnerSphere);
     InnerSphereComp->SetupAttachment(MeshComp);
 
