@@ -3,7 +3,9 @@
 #include "FPSGameMode.h"
 #include "FPSHUD.h"
 #include "FPSCharacter.h"
-#include "UObject/ConstructorHelpers.h"
+
+#include <UObject/ConstructorHelpers.h>
+#include <Kismet/GameplayStatics.h>
 
 AFPSGameMode::AFPSGameMode()
 {
@@ -20,6 +22,21 @@ void AFPSGameMode::CompleteMission(APawn* InstigatorPawn)
     if (InstigatorPawn)
     {
         InstigatorPawn->DisableInput(nullptr);
+
+        TArray<AActor*> FoundActors;
+        UGameplayStatics::GetAllActorsOfClass(this, SpectatingViewpointClass, FoundActors);
+
+        AActor* NewViewpointActor = nullptr;
+        if (FoundActors.Num() > 0)
+        {
+            NewViewpointActor = FoundActors[0];
+        }
+
+        auto PC = Cast<APlayerController>(InstigatorPawn->GetController());
+        if (PC && NewViewpointActor)
+        {
+            PC->SetViewTargetWithBlend(NewViewpointActor, 0.7f, EViewTargetBlendFunction::VTBlend_Cubic);
+        }
     }
 
     OnMissionCompleted(InstigatorPawn);
