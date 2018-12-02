@@ -8,6 +8,7 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
 
 
 // Sets default values
@@ -38,6 +39,12 @@ void AFPSAIGuard::BeginPlay()
 	Super::BeginPlay();
 	
     OriginalRotation = GetActorRotation();
+
+    if (bPatrol)
+    {
+        CurrentPatrolIndex = PatrolPoints.Num();
+        MoveToNextPatrolPoint();
+    }
 }
 
 void AFPSAIGuard::OnPawnSeen(APawn * SeenPawn)
@@ -63,6 +70,9 @@ void AFPSAIGuard::OnPawnSeen(APawn * SeenPawn)
     }
 
     SetGuardState(EAIGuardState::Alerted);
+
+    // Stop movement if patrolling
+    StopMovement();
 }
 
 void AFPSAIGuard::OnNoiseHeard(APawn * NoiseInstigator, const FVector & Location, float Volume)
@@ -91,25 +101,60 @@ void AFPSAIGuard::OnNoiseHeard(APawn * NoiseInstigator, const FVector & Location
     auto& TimerManager = GetWorld()->GetTimerManager();
     TimerManager.ClearTimer(TimerHandle_ResetRotation);
 
-    FTimerDelegate TimerDelegate;
-    TimerDelegate.BindLambda(
-        [this]() 
-    { 
-        if (CurrentState == EAIGuardState::Alerted)
-        {
-            return;
-        }
-
-        SetActorRotation(OriginalRotation); 
-        SetGuardState(EAIGuardState::Idle);
-    });
-
     TimerManager.SetTimer(TimerHandle_ResetRotation
-        , TimerDelegate
+        , this
+        , &AFPSAIGuard::ResetOrientation
         , 3.0f
         , false);
 
     SetGuardState(EAIGuardState::Suspicious);
+
+    // Stop movement if patrolling
+    StopMovement();
+}
+
+void AFPSAIGuard::ResetOrientation()
+{
+    if (CurrentState == EAIGuardState::Alerted)
+    {
+        return;
+    }
+
+    SetActorRotation(OriginalRotation);
+    SetGuardState(EAIGuardState::Idle);
+
+    if (bPatrol)
+    {
+        MoveToNextPatrolPoint();
+    }
+}
+
+void AFPSAIGuard::StopMovement()
+{
+    auto AIController = GetController();
+    if (AIController)
+    {
+        AIController->StopMovement();
+    }
+}
+
+void AFPSAIGuard::MoveToNextPatrolPoint()
+{
+    if (PatrolPoints.Num() == 0)
+    {
+        return;
+    }
+
+    if (CurrentPatrolIndex < PatrolPoints.Num() - 1)
+    {
+        ++CurrentPatrolIndex;
+    }
+    else
+    {
+        CurrentPatrolIndex = 0;
+    }
+
+    UAIBlueprintHelperLibrary::SimpleMoveToActor(GetController(), PatrolPoints[CurrentPatrolIndex]);
 }
 
 // Called every frame
@@ -117,4 +162,15 @@ void AFPSAIGuard::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+    if (bPatrol && PatrolPoints.Num() != 0)
+    {
+        auto Delta = GetActorLocation() - PatrolPoints[CurrentPatrolIndex]->GetActorLocation();
+        float DistanceToGoal = Delta.Size2D();
+
+        // Check if we are within 50 units of our goal, if so - pick a new patrol point
+        if (DistanceToGoal < 50)
+        {
+            MoveToNextPatrolPoint();
+        }
+    }
 }
