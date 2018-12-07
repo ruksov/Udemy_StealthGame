@@ -9,6 +9,7 @@
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Sets default values
@@ -22,6 +23,11 @@ AFPSAIGuard::AFPSAIGuard()
     PawnSensingComp->OnHearNoise.AddDynamic(this, &AFPSAIGuard::OnNoiseHeard);
 }
 
+void AFPSAIGuard::OnRep_GuardState()
+{
+    OnGuardStateChanged(CurrentState);
+}
+
 void AFPSAIGuard::SetGuardState(EAIGuardState NewState)
 {
     if (CurrentState == NewState)
@@ -30,7 +36,15 @@ void AFPSAIGuard::SetGuardState(EAIGuardState NewState)
     }
 
     CurrentState = NewState;
-    OnGuardStateChanged(NewState);
+    OnRep_GuardState();
+}
+
+
+void AFPSAIGuard::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(AFPSAIGuard, CurrentState);
 }
 
 // Called when the game starts or when spawned
@@ -112,6 +126,8 @@ void AFPSAIGuard::OnNoiseHeard(APawn * NoiseInstigator, const FVector & Location
     // Stop movement if patrolling
     StopMovement();
 }
+
+
 
 void AFPSAIGuard::ResetOrientation()
 {

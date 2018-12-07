@@ -3,9 +3,11 @@
 #include "FPSGameMode.h"
 #include "FPSHUD.h"
 #include "FPSCharacter.h"
+#include "FPSGameState.h"
 
 #include <UObject/ConstructorHelpers.h>
 #include <Kismet/GameplayStatics.h>
+#include "Engine/World.h"
 
 AFPSGameMode::AFPSGameMode()
 {
@@ -21,23 +23,35 @@ void AFPSGameMode::CompleteMission(APawn* InstigatorPawn, bool bMissionComplete)
 {
     if (InstigatorPawn)
     {
-        InstigatorPawn->DisableInput(nullptr);
-
-        TArray<AActor*> FoundActors;
-        UGameplayStatics::GetAllActorsOfClass(this, SpectatingViewpointClass, FoundActors);
-
-        AActor* NewViewpointActor = nullptr;
-        if (FoundActors.Num() > 0)
+        if (SpectatingViewpointClass)
         {
-            NewViewpointActor = FoundActors[0];
+            TArray<AActor*> FoundActors;
+            UGameplayStatics::GetAllActorsOfClass(this, SpectatingViewpointClass, FoundActors);
+
+            AActor* NewViewpointActor = nullptr;
+            if (FoundActors.Num() > 0)
+            {
+                NewViewpointActor = FoundActors[0];
+
+                for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+                {
+                    auto PC = Cast<APlayerController>(It->Get());
+                    if (PC && NewViewpointActor)
+                    {
+                        PC->SetViewTargetWithBlend(NewViewpointActor, 0.7f, EViewTargetBlendFunction::VTBlend_Cubic);
+                    }
+                }
+            }
         }
-
-        auto PC = Cast<APlayerController>(InstigatorPawn->GetController());
-        if (PC && NewViewpointActor)
+        else
         {
-            PC->SetViewTargetWithBlend(NewViewpointActor, 0.7f, EViewTargetBlendFunction::VTBlend_Cubic);
+            UE_LOG(LogTemp, Warning, TEXT("SpectatingViewpointClass is nullptr. Please update GameMode class with valid subclass. Cannot change spectating viewpoint."));
         }
     }
 
-    OnMissionCompleted(InstigatorPawn, bMissionComplete);
+    auto GS = GetGameState<AFPSGameState>();
+    if (GS)
+    {
+        GS->MulticastOnMissionComplete(InstigatorPawn, bMissionComplete);
+    }
 }

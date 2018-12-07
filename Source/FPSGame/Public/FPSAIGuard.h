@@ -23,7 +23,8 @@ public:
 	// Sets default values for this character's properties
 	AFPSAIGuard();
 
-    void SetGuardState(EAIGuardState NewState);
+    // Called every frame
+    virtual void Tick(float DeltaTime) override;
 
 protected:
 	// Called when the game starts or when spawned
@@ -38,14 +39,15 @@ protected:
     UFUNCTION(BlueprintImplementableEvent, Category = "AI")
     void OnGuardStateChanged(EAIGuardState NewState);
 
+    UFUNCTION()
+    void OnRep_GuardState();
+
+    void SetGuardState(EAIGuardState NewState);
+
     void ResetOrientation();
 
     void StopMovement();
     void MoveToNextPatrolPoint();
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
 protected:
     UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -62,8 +64,10 @@ protected:
     // The current point the actor is either moving to or standing at
     size_t CurrentPatrolIndex = 0;
 
+    UPROPERTY(ReplicatedUsing=OnRep_GuardState)
+    EAIGuardState CurrentState = EAIGuardState::Idle;
+
 private:
     FRotator OriginalRotation;
     FTimerHandle TimerHandle_ResetRotation;
-    EAIGuardState CurrentState = EAIGuardState::Idle;
 };
